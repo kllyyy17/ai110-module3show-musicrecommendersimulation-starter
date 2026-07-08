@@ -17,17 +17,41 @@ Replace this paragraph with your own summary of what your version does.
 
 ## How The System Works
 
-Explain your design in plain language.
+Real recommenders (Spotify, etc.) learn from millions of users' behavior — plays, skips, saves —
+to predict what you'll like. My version is smaller and **content-based**: it compares each song's
+measurable attributes to a user's stated taste, with no history or other users. It prioritizes
+*closeness of fit* (values near the user's target, not just high) plus a bonus for matching genre
+and mood.
 
-Some prompts to answer:
+- **`Song` features:** `genre`, `mood`, `energy`, `valence`, `danceability`, `acousticness`,
+  `tempo_bpm` (normalized 0–1), plus `title`/`artist` for display.
+- **`UserProfile` features:** `preferred_genre` and `preferred_mood`, target values for the five
+  numeric features, and per-feature **weights**.
 
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
+### Algorithm Recipe
 
-You can include a simple diagram or bullet list if helpful.
+Each song accumulates points (higher = better match):
+
+- **Genre match:** +2.0 · **Mood match:** +1.0 (mood is half of genre since it overlaps energy/valence)
+- **Numeric similarity** rewards closeness: `weight × (1 − |target − value|)`, with weights
+  energy 2.0, acousticness 1.5, valence/danceability/tempo 1.0 each.
+
+```
+score = 2.0·[genre match] + 1.0·[mood match]
+      + 2.0·(1−|Δenergy|) + 1.5·(1−|Δacousticness|)
+      + 1.0·(1−|Δvalence|) + 1.0·(1−|Δdanceability|) + 1.0·(1−|Δtempo|)
+```
+
+**Ranking:** score every song → sort descending → return top *k* (k=5) with a short explanation.
+
+### Potential biases I expect
+
+- **Genre over-prioritization** — genre (+2.0) is the heaviest term, so a great cross-genre match
+  on mood/energy (e.g., ambient/jazz for a lofi fan) can get buried.
+- **No diversity** — with no history it may return five near-identical songs.
+- **Redundant mood signal** — mood restates energy + valence, so "vibe" is partly double-counted.
+- **Tiny hand-labeled catalog** — scores are only meaningful across 20 songs whose values I assigned,
+  so any labeling bias propagates directly.
 
 ---
 
